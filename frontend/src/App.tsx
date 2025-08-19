@@ -9,6 +9,8 @@ import Sections from './pages/Sections';
 import Classes from './pages/Classes';
 import Teachers from './pages/Teachers';
 import Students from './pages/Students';
+import StudentAdmission from './pages/StudentAdmission';
+import StudentView from './pages/StudentView';
 import Parents from './pages/Parents';
 import Layout from './components/Layout';
 
@@ -30,6 +32,8 @@ function App() {
                 <Route path="classes" element={<Classes />} />
                 <Route path="teachers" element={<Teachers />} />
                 <Route path="students" element={<Students />} />
+                <Route path="student-admission" element={<StudentAdmission />} />
+                <Route path="students/:id" element={<StudentView />} />
                 <Route path="parents" element={<Parents />} />
               </Route>
             </Route>

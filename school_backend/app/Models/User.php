@@ -13,6 +13,13 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
     /**
+     * The guard name for the model.
+     *
+     * @var string
+     */
+    protected $guard_name = 'api';
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -84,5 +91,13 @@ class User extends Authenticatable
     public function canManageUsers()
     {
         return $this->isAdmin();
+    }
+
+    /**
+     * Get the student record associated with this user
+     */
+    public function student()
+    {
+        return $this->hasOne(\App\Models\Student::class);
     }
 }

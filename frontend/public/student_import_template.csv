@@ -1,0 +1,6 @@
+admission_no,name,email,phone,dob,gender,address,class_name,section_name
+ST001,John Doe,john.doe@example.com,+1234567890,2005-01-15,male,123 Main St,Class 10,Section A
+ST002,Jane Smith,jane.smith@example.com,+1234567891,2005-03-20,female,456 Oak Ave,Class 10,Section A
+ST003,Mike Johnson,mike.johnson@example.com,+1234567892,2005-06-10,male,789 Pine Rd,Class 9,Section B
+ST004,Sarah Wilson,sarah.wilson@example.com,+1234567893,2005-08-12,female,321 Elm St,Class 9,Section B
+ST005,David Brown,david.brown@example.com,+1234567894,2005-11-05,male,654 Maple Dr,Class 8,Section C

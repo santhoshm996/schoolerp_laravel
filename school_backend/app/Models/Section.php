@@ -18,4 +18,12 @@ class Section extends Model
     {
         return $this->hasMany(ClassRoom::class);
     }
+
+    /**
+     * Get the students in this section
+     */
+    public function students()
+    {
+        return $this->hasMany(\App\Models\Student::class);
+    }
 }

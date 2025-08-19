@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\SectionController;
 use App\Http\Controllers\Api\V1\ClassController;
+use App\Http\Controllers\Api\V1\StudentController;
+use App\Http\Controllers\Api\V1\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,6 +24,11 @@ use App\Http\Controllers\Api\V1\ClassController;
 Route::prefix('v1')->group(function () {
     // Authentication routes
     Route::post('/login', [AuthController::class, 'login']);
+    
+    // Public data endpoints (no authentication required)
+    Route::get('/students/classes-sections', [StudentController::class, 'getClassesAndSections']);
+    Route::get('/classes', [ClassController::class, 'index']);
+    Route::get('/sections', [SectionController::class, 'index']);
 });
 
 // Protected routes
@@ -33,11 +40,18 @@ Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     // User management (Superadmin/Admin only)
     Route::apiResource('users', UserController::class);
     
-    // Section management
-    Route::apiResource('sections', SectionController::class);
+    // Dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index']);
     
-    // Class management
-    Route::apiResource('classes', ClassController::class);
+    // Student management
+    Route::apiResource('students', StudentController::class);
+    Route::post('/students/bulk-import', [StudentController::class, 'bulkImport']);
+});
+
+// Public data endpoints (no authentication required)
+Route::prefix('v1')->group(function () {
+    Route::get('/classes', [ClassController::class, 'index']);
+    Route::get('/sections', [SectionController::class, 'index']);
 });
 
 // Fallback route

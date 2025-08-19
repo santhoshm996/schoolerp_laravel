@@ -4,7 +4,7 @@ import {
   PlusIcon, 
   PencilIcon, 
   TrashIcon,
-  EyeIcon,
+
   UserIcon
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../services/apiClient';

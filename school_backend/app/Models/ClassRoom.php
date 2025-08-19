@@ -20,4 +20,12 @@ class ClassRoom extends Model
     {
         return $this->belongsTo(Section::class);
     }
+
+    /**
+     * Get the students in this class
+     */
+    public function students()
+    {
+        return $this->hasMany(\App\Models\Student::class, 'class_id');
+    }
 }
