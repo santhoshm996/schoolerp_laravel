@@ -30,6 +30,8 @@ return [
         'http://127.0.0.1:5173',
         'http://school_backend.test',
         'https://school_backend.test',
+        'http://localhost:5173', // Vite default port
+        'http://127.0.0.1:5173', // Vite default port
     ],
 
     'allowed_origins_patterns' => [

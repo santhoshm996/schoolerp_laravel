@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -10,6 +11,7 @@ import {
 import { apiClient } from '../services/apiClient';
 import StudentBulkImport from './StudentBulkImport';
 import { useNavigate } from 'react-router-dom';
+import { useSessionChange } from '../hooks/useSessionChange';
 
 interface Student {
   id: number;
@@ -20,11 +22,13 @@ interface Student {
   dob: string;
   gender: string;
   address: string;
-  class: {
+  class_id?: number;
+  section_id?: number;
+  classRoom?: {
     id: number;
     name: string;
   };
-  section: {
+  section?: {
     id: number;
     name: string;
   };
@@ -53,6 +57,7 @@ interface Section {
 
 const Students: React.FC = () => {
   const navigate = useNavigate();
+  const { showSuccess, showError } = useToast();
   const [activeTab, setActiveTab] = useState<'list' | 'bulk-import'>('list');
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +81,14 @@ const Students: React.FC = () => {
     }
   }, [activeTab]);
 
+  // Listen for session changes and refresh data
+  useSessionChange(() => {
+    if (activeTab === 'list') {
+      fetchStudents();
+      fetchClassesAndSections();
+    }
+  });
+
   useEffect(() => {
     if (activeTab === 'list') {
       fetchStudents();
@@ -93,8 +106,16 @@ const Students: React.FC = () => {
       });
 
       const response = await apiClient.get(`/api/v1/students?${params}`);
-      setStudents(response.data.data);
-      setPagination(response.data.pagination);
+      console.log('API Response:', response.data); // Debug log
+      console.log('Students data:', response.data.data); // Debug log
+      
+      if (response.data.data && Array.isArray(response.data.data)) {
+        setStudents(response.data.data);
+        setPagination(response.data.pagination);
+      } else {
+        console.error('Invalid response format:', response.data);
+        setError('Invalid response format from server');
+      }
     } catch (err: any) {
       setError('Failed to fetch students');
       console.error('Error fetching students:', err);
@@ -132,8 +153,10 @@ const Students: React.FC = () => {
     try {
       await apiClient.delete(`/api/v1/students/${studentId}`);
       setStudents(students.filter(student => student.id !== studentId));
+      showSuccess('Student Deleted', 'Student has been deleted successfully');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete student');
+      showError('Error', err.response?.data?.message || 'Failed to delete student');
       console.error('Error deleting student:', err);
     }
   };
@@ -209,32 +232,7 @@ const Students: React.FC = () => {
             </div>
           )}
 
-          {/* Quick Actions Card */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">Quick Actions</h3>
-                <p className="text-blue-700 text-sm">
-                  Add new students with complete information including photos, parent details, and guardian information.
-                </p>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => navigate('/student-admission')}
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-sm hover:shadow-md"
-                >
-                  <PlusIcon className="mr-2 h-5 w-5" />
-                  New Student Admission
-                </button>
-                <button
-                  onClick={() => setActiveTab('bulk-import')}
-                  className="inline-flex items-center px-6 py-3 bg-white text-blue-600 text-sm font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 border border-blue-300 shadow-sm hover:shadow-md"
-                >
-                  Bulk Import
-                </button>
-              </div>
-            </div>
-          </div>
+
 
           {/* Search and Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
@@ -321,64 +319,106 @@ const Students: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {students.map((student) => (
-                      <tr key={student.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
+                    {students.map((student) => {
+                      console.log('Student object:', student); // Debug log
+                      console.log('Student classRoom:', student.classRoom); // Debug log
+                      console.log('Student section:', student.section); // Debug log
+                      
+                      return (
+                        <tr key={student.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-blue-600">
+                                    {student.name.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <button
+                                  onClick={() => handleView(student.id)}
+                                  className="text-sm font-medium text-blue-600 hover:text-blue-900 text-left"
+                                >
+                                  {student.name}
+                                </button>
+                                <div className="text-sm text-gray-500">{student.admission_no}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {(() => {
+                                // Debug logging
+                                console.log('Student ID:', student.id);
+                                console.log('Student classRoom:', student.classRoom);
+                                console.log('Student section:', student.section);
+                                console.log('Student class_id:', (student as any).class_id);
+                                console.log('Student section_id:', (student as any).section_id);
+                                
+                                // Try to get class and section names from relationships first
+                                const className = student.classRoom?.name;
+                                const sectionName = student.section?.name;
+                                
+                                // If relationships are loaded, use them
+                                if (className && sectionName) {
+                                  return `${className} - ${sectionName}`;
+                                }
+                                
+                                // Fallback: try to get from classes and sections arrays
+                                const classFromArray = classes.find(c => c.id === (student as any).class_id);
+                                const sectionFromArray = sections.find(s => s.id === (student as any).section_id);
+                                
+                                if (classFromArray && sectionFromArray) {
+                                  return `${classFromArray.name} - ${sectionFromArray.name}`;
+                                }
+                                
+                                // Final fallback
+                                return 'N/A - N/A';
+                              })()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{student.email}</div>
+                            {student.phone && (
+                              <div className="text-sm text-gray-500">{student.phone}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              student.user?.status === 'active' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {student.user?.status || 'Unknown'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => handleView(student.id)}
-                              className="text-sm font-medium text-blue-600 hover:text-blue-900 text-left"
+                              className="text-green-600 hover:text-green-900 mr-4"
+                              title="View"
                             >
-                              {student.name}
+                              <EyeIcon className="h-4 w-4" />
                             </button>
-                            <div className="text-sm text-gray-500">{student.admission_no}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {student.class.name} - {student.section.name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{student.email}</div>
-                          {student.phone && (
-                            <div className="text-sm text-gray-500">{student.phone}</div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            student.user.status === 'active' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {student.user.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button
-                            onClick={() => handleView(student.id)}
-                            className="text-green-600 hover:text-green-900 mr-4"
-                            title="View"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(student)}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
-                            title="Edit"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(student.id)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <button
+                              onClick={() => handleEdit(student)}
+                              className="text-blue-600 hover:text-blue-900 mr-4"
+                              title="Edit"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(student.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

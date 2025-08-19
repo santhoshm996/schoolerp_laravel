@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -31,6 +32,7 @@ interface CreateUserData {
 
 const Users: React.FC = () => {
   const { user: currentUser } = useAuth();
+  const { showSuccess, showError } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -84,9 +86,10 @@ const Users: React.FC = () => {
         status: 'active'
       });
       fetchUsers();
+      showSuccess('User Created', 'User has been created successfully');
     } catch (error: any) {
       console.error('Error creating user:', error);
-      alert(error.response?.data?.message || 'Error creating user');
+      showError('Error Creating User', error.response?.data?.message || 'Error creating user');
     }
   };
 
@@ -111,9 +114,10 @@ const Users: React.FC = () => {
         status: 'active'
       });
       fetchUsers();
+      showSuccess('User Updated', 'User has been updated successfully');
     } catch (error: any) {
       console.error('Error updating user:', error);
-      alert(error.response?.data?.message || 'Error updating user');
+      showError('Error Updating User', error.response?.data?.message || 'Error updating user');
     }
   };
 
@@ -123,9 +127,10 @@ const Users: React.FC = () => {
     try {
       await apiClient.delete(`/api/v1/users/${userId}`);
       fetchUsers();
+      showSuccess('User Deleted', 'User has been deleted successfully');
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      alert(error.response?.data?.message || 'Error deleting user');
+      showError('Error Deleting User', error.response?.data?.message || 'Error deleting user');
     }
   };
 

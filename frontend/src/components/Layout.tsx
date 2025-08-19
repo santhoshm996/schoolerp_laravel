@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import ToastContainer from './ui/ToastContainer';
 import Sidebar from './Sidebar';
 import { Menu, X } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const { user } = useAuth();
+  const { toasts, removeToast } = useToast();
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -38,6 +41,7 @@ const Layout: React.FC = () => {
     if (path === '/results') return 'Results';
     if (path === '/classes-assigned') return 'Classes Assigned';
     if (path === '/fee-collection') return 'Fee Collection';
+    if (path === '/fee-groups') return 'Fee Groups';
     return 'Dashboard';
   };
 
@@ -100,6 +104,9 @@ const Layout: React.FC = () => {
           onClick={toggleMobileMenu}
         />
       )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 };

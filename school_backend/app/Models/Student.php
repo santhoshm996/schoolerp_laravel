@@ -21,6 +21,7 @@ class Student extends Model
         'class_id',
         'section_id',
         'user_id',
+        'session_id',
     ];
 
     protected $casts = [
@@ -38,7 +39,7 @@ class Student extends Model
     /**
      * Get the class that owns this student
      */
-    public function class()
+    public function classRoom()
     {
         return $this->belongsTo(ClassRoom::class, 'class_id');
     }
@@ -56,8 +57,8 @@ class Student extends Model
      */
     public function getFullClassNameAttribute()
     {
-        if ($this->class && $this->section) {
-            return $this->class->name . ' - ' . $this->section->name;
+        if ($this->classRoom && $this->section) {
+            return $this->classRoom->name . ' - ' . $this->section->name;
         }
         return 'N/A';
     }
@@ -76,5 +77,27 @@ class Student extends Model
     public function guardian()
     {
         return $this->hasOne(Guardian::class);
+    }
+
+    /**
+     * Get the session that owns this student
+     */
+    public function session()
+    {
+        return $this->belongsTo(Session::class);
+    }
+
+    /**
+     * Scope to filter by session
+     */
+    public function scopeInSession($query, $sessionId = null)
+    {
+        if ($sessionId) {
+            return $query->where('session_id', $sessionId);
+        }
+        
+        // Default to active session if none specified
+        $activeSession = \App\Models\Session::getActiveSession();
+        return $activeSession ? $query->where('session_id', $activeSession->id) : $query;
     }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, GraduationCap, Users, Shield, ArrowLeft, Save } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { UserPlus, GraduationCap, Users, Shield, ArrowLeft, Save, ChevronRight } from 'lucide-react';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import FileUpload from '../components/ui/FileUpload';
@@ -75,6 +76,7 @@ interface ClassSection {
 const StudentAdmission: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { showSuccess } = useToast();
   const editStudentId = searchParams.get('edit');
   
   const [activeTab, setActiveTab] = useState('student');
@@ -190,11 +192,11 @@ const StudentAdmission: React.FC = () => {
         gender: student.gender || '',
         address: student.address || '',
         photo: null, // We'll handle existing photos separately
-        class_id: student.class.id.toString(),
+        class_id: student.classRoom.id.toString(),
         section_id: student.section.id.toString(),
         father_name: student.parent?.father_name || '',
         father_phone: student.parent?.father_phone || '',
-        father_email: student.parent?.father_phone || '',
+        father_email: student.parent?.father_email || '',
         father_photo: null,
         mother_name: student.parent?.mother_name || '',
         mother_phone: student.parent?.mother_phone || '',
@@ -235,6 +237,66 @@ const StudentAdmission: React.FC = () => {
     // Email format validation
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Phone number validation (if provided)
+    if (formData.phone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.phone)) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    // Date of birth validation (if provided)
+    if (formData.dob) {
+      const dobDate = new Date(formData.dob);
+      const today = new Date();
+      const age = today.getFullYear() - dobDate.getFullYear();
+      
+      if (age < 3 || age > 25) {
+        newErrors.dob = 'Student age should be between 3 and 25 years';
+      }
+    }
+
+    // Parent email validation (if provided)
+    if (formData.father_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.father_email)) {
+      newErrors.father_email = 'Please enter a valid email address for father';
+    }
+
+    if (formData.mother_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.mother_email)) {
+      newErrors.mother_email = 'Please enter a valid email address for mother';
+    }
+
+    // Parent phone validation (if provided)
+    if (formData.father_phone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.father_phone)) {
+      newErrors.father_phone = 'Please enter a valid phone number for father';
+    }
+
+    if (formData.mother_phone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.mother_phone)) {
+      newErrors.mother_phone = 'Please enter a valid phone number for mother';
+    }
+
+    // Guardian validation (if provided)
+    if (formData.guardian_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.guardian_email)) {
+      newErrors.guardian_email = 'Please enter a valid email address for guardian';
+    }
+
+    if (formData.guardian_phone && !/^[\+]?[1-9][\d]{0,15}$/.test(formData.guardian_phone)) {
+      newErrors.guardian_phone = 'Please enter a valid phone number for guardian';
+    }
+
+    // File size validation
+    if (formData.photo && formData.photo.size > 2 * 1024 * 1024) {
+      newErrors.photo = 'Photo size must be less than 2MB';
+    }
+
+    if (formData.father_photo && formData.father_photo.size > 2 * 1024 * 1024) {
+      newErrors.father_photo = 'Father photo size must be less than 2MB';
+    }
+
+    if (formData.mother_photo && formData.mother_photo.size > 2 * 1024 * 1024) {
+      newErrors.mother_photo = 'Mother photo size must be less than 2MB';
+    }
+
+    if (formData.guardian_photo && formData.guardian_photo.size > 2 * 1024 * 1024) {
+      newErrors.guardian_photo = 'Guardian photo size must be less than 2MB';
     }
 
     setErrors(newErrors);
@@ -282,7 +344,7 @@ const StudentAdmission: React.FC = () => {
       if (response.data.success) {
         // Show success message and redirect
         const message = editStudentId ? 'Student updated successfully!' : 'Student created successfully!';
-        alert(message);
+        showSuccess('Success', message);
         navigate('/students');
       }
     } catch (error: any) {
@@ -340,7 +402,7 @@ const StudentAdmission: React.FC = () => {
   };
 
   return (
-    <div> className="space-y-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between">
@@ -376,6 +438,16 @@ const StudentAdmission: React.FC = () => {
         </div>
       )}
 
+      {/* Classes Loading State */}
+      {loadingClasses && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-center py-6">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+            <span className="text-gray-600">Loading classes and sections...</span>
+          </div>
+        </div>
+      )}
+
       {/* General Error Message */}
       {errors.general && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -388,9 +460,86 @@ const StudentAdmission: React.FC = () => {
         </div>
       )}
 
+      {/* Classes Error Message */}
+      {classesError && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Warning</h3>
+              <div className="mt-2 text-sm text-yellow-700">{classesError}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Progress</h3>
+          <p className="text-sm text-gray-600">Complete each step to proceed</p>
+        </div>
         <Progress currentStep={getCurrentStep()} totalSteps={3} />
+        
+        {/* Step Status Indicators */}
+        <div className="mt-6 grid grid-cols-3 gap-4">
+          <div className={`text-center p-3 rounded-lg border ${
+            getCurrentStep() >= 1 
+              ? 'bg-green-50 border-green-200 text-green-700' 
+              : 'bg-gray-50 border-gray-200 text-gray-500'
+          }`}>
+            <div className={`w-6 h-6 rounded-full mx-auto mb-2 flex items-center justify-center text-xs font-medium ${
+              getCurrentStep() > 1 
+                ? 'bg-green-500 text-white' 
+                : getCurrentStep() === 1 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-300 text-gray-600'
+            }`}>
+              {getCurrentStep() > 1 ? '✓' : '1'}
+            </div>
+            <div className="text-xs font-medium">Student Info</div>
+            <div className="text-xs opacity-75">
+              {getCurrentStep() >= 1 ? 'Completed' : 'Required'}
+            </div>
+          </div>
+          
+          <div className={`text-center p-3 rounded-lg border ${
+            getCurrentStep() >= 2 
+              ? 'bg-green-50 border-green-200 text-green-700' 
+              : 'bg-gray-50 border-gray-200 text-gray-500'
+          }`}>
+            <div className={`w-6 h-6 rounded-full mx-auto mb-2 flex items-center justify-center text-xs font-medium ${
+              getCurrentStep() > 2 
+                ? 'bg-green-500 text-white' 
+                : getCurrentStep() === 2 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-300 text-gray-600'
+            }`}>
+              {getCurrentStep() > 2 ? '✓' : '2'}
+            </div>
+            <div className="text-xs font-medium">Parent Info</div>
+            <div className="text-xs opacity-75">
+              {getCurrentStep() >= 2 ? 'Completed' : 'Optional'}
+            </div>
+          </div>
+          
+          <div className={`text-center p-3 rounded-lg border ${
+            getCurrentStep() >= 3 
+              ? 'bg-green-50 border-green-200 text-green-700' 
+              : 'bg-gray-50 border-gray-200 text-gray-500'
+          }`}>
+            <div className={`w-6 h-6 rounded-full mx-auto mb-2 flex items-center justify-center text-xs font-medium ${
+              getCurrentStep() === 3 
+                ? 'bg-blue-500 text-white' 
+                : 'bg-gray-300 text-gray-600'
+            }`}>
+              3
+            </div>
+            <div className="text-xs font-medium">Guardian Info</div>
+            <div className="text-xs opacity-75">
+              {getCurrentStep() === 3 ? 'Current' : 'Optional'}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -494,168 +643,210 @@ const StudentAdmission: React.FC = () => {
               </div>
             )}
 
-          {/* Parent Information Tab */}
-          {activeTab === 'parent' && (
-            <div className="space-y-8">
-              {/* Father Information */}
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Father Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input
-                    label="Father's Name"
-                    value={formData.father_name}
-                    onChange={(e) => handleInputChange('father_name', e.target.value)}
-                    error={errors.father_name}
-                  />
-                  <Input
-                    label="Father's Phone"
-                    value={formData.father_phone}
-                    onChange={(e) => handleInputChange('father_phone', e.target.value)}
-                    error={errors.father_phone}
-                  />
-                  <Input
-                    label="Father's Email"
-                    type="email"
-                    value={formData.father_email}
-                    onChange={(e) => handleInputChange('father_email', e.target.value)}
-                    error={errors.father_email}
-                  />
-                  <div className="md:col-span-2">
-                    <FileUpload
-                      label="Father's Photo"
-                      value={formData.father_photo}
-                      onChange={(file) => handleInputChange('father_photo', file)}
-                      error={errors.father_photo}
-                      helperText="Upload a clear photo of the father (JPG, PNG, max 2MB)"
+            {/* Parent Information Tab */}
+            {activeTab === 'parent' && (
+              <div className="space-y-8">
+                {/* Father Information */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Father Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Father's Name"
+                      value={formData.father_name}
+                      onChange={(e) => handleInputChange('father_name', e.target.value)}
+                      error={errors.father_name}
                     />
+                    <Input
+                      label="Father's Phone"
+                      value={formData.father_phone}
+                      onChange={(e) => handleInputChange('father_phone', e.target.value)}
+                      error={errors.father_phone}
+                    />
+                    <Input
+                      label="Father's Email"
+                      type="email"
+                      value={formData.father_email}
+                      onChange={(e) => handleInputChange('father_email', e.target.value)}
+                      error={errors.father_email}
+                    />
+                    <div className="md:col-span-2">
+                      <FileUpload
+                        label="Father's Photo"
+                        value={formData.father_photo}
+                        onChange={(file) => handleInputChange('father_photo', file)}
+                        error={errors.father_photo}
+                        helperText="Upload a clear photo of the father (JPG, PNG, max 2MB)"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mother Information */}
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Mother Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Mother's Name"
+                      value={formData.mother_name}
+                      onChange={(e) => handleInputChange('mother_name', e.target.value)}
+                      error={errors.mother_name}
+                    />
+                    <Input
+                      label="Mother's Phone"
+                      value={formData.mother_phone}
+                      onChange={(e) => handleInputChange('mother_phone', e.target.value)}
+                      error={errors.mother_phone}
+                    />
+                    <Input
+                      label="Mother's Email"
+                      type="email"
+                      value={formData.mother_email}
+                      onChange={(e) => handleInputChange('mother_email', e.target.value)}
+                      error={errors.mother_email}
+                    />
+                    <div className="md:col-span-2">
+                      <FileUpload
+                        label="Mother's Photo"
+                        value={formData.mother_photo}
+                        onChange={(file) => handleInputChange('mother_photo', file)}
+                        error={errors.mother_photo}
+                        helperText="Upload a clear photo of the mother (JPG, PNG, max 2MB)"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              {/* Mother Information */}
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Mother Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input
-                    label="Mother's Name"
-                    value={formData.mother_name}
-                    onChange={(e) => handleInputChange('mother_name', e.target.value)}
-                    error={errors.mother_name}
-                  />
-                  <Input
-                    label="Mother's Phone"
-                    value={formData.mother_phone}
-                    onChange={(e) => handleInputChange('mother_phone', e.target.value)}
-                    error={errors.mother_phone}
-                  />
-                  <Input
-                    label="Mother's Email"
-                    type="email"
-                    value={formData.mother_email}
-                    onChange={(e) => handleInputChange('mother_email', e.target.value)}
-                    error={errors.mother_email}
-                  />
-                  <div className="md:col-span-2">
-                    <FileUpload
-                      label="Mother's Photo"
-                      value={formData.mother_photo}
-                      onChange={(file) => handleInputChange('mother_photo', file)}
-                      error={errors.mother_photo}
-                      helperText="Upload a clear photo of the mother (JPG, PNG, max 2MB)"
+            {/* Guardian Information Tab */}
+            {activeTab === 'guardian' && (
+              <div className="space-y-6">
+                <div className="border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Guardian Information (Optional)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Guardian's Name"
+                      value={formData.guardian_name}
+                      onChange={(e) => handleInputChange('guardian_name', e.target.value)}
+                      error={errors.guardian_name}
                     />
+                    <Input
+                      label="Relationship to Student"
+                      value={formData.guardian_relationship}
+                      onChange={(e) => handleInputChange('guardian_relationship', e.target.value)}
+                      error={errors.guardian_relationship}
+                      helperText="e.g., Uncle, Aunt, Grandparent"
+                    />
+                    <Input
+                      label="Guardian's Phone"
+                      value={formData.guardian_phone}
+                      onChange={(e) => handleInputChange('guardian_phone', e.target.value)}
+                      error={errors.guardian_phone}
+                    />
+                    <Input
+                      label="Guardian's Email"
+                      type="email"
+                      value={formData.guardian_email}
+                      onChange={(e) => handleInputChange('guardian_email', e.target.value)}
+                      error={errors.guardian_email}
+                    />
+                    <div className="md:col-span-2">
+                      <FileUpload
+                        label="Guardian's Photo"
+                        value={formData.guardian_photo}
+                        onChange={(file) => handleInputChange('guardian_photo', file)}
+                        error={errors.guardian_photo}
+                        helperText="Upload a clear photo of the guardian (JPG, PNG, max 2MB)"
+                      />
+                    </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div className="flex justify-between pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={handlePrevious}
+                disabled={activeTab === 'student'}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2 inline" />
+                Previous
+              </button>
+              
+              <div className="flex space-x-3">
+                {activeTab !== 'guardian' ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!canProceedToNext()}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                      canProceedToNext()
+                        ? 'text-white bg-blue-600 border border-transparent hover:bg-blue-700 shadow-sm'
+                        : 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2 inline" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || !canProceedToNext()}
+                    className={`inline-flex items-center px-6 py-2 text-sm font-medium rounded-md transition-all duration-200 ${
+                      isSubmitting || !canProceedToNext()
+                        ? 'text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed'
+                        : 'text-white bg-green-600 border border-transparent hover:bg-green-700 shadow-sm hover:shadow-md'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {editStudentId ? 'Updating Student...' : 'Creating Student...'}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-4 w-4 mr-2" />
+                        {editStudentId ? 'Update Student' : 'Create Student'}
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Guardian Information Tab */}
-          {activeTab === 'guardian' && (
-            <div className="space-y-6">
-              <div className="border border-gray-200 rounded-lg p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Guardian Information (Optional)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Input
-                    label="Guardian's Name"
-                    value={formData.guardian_name}
-                    onChange={(e) => handleInputChange('guardian_name', e.target.value)}
-                    error={errors.guardian_name}
-                  />
-                  <Input
-                    label="Relationship to Student"
-                    value={formData.guardian_relationship}
-                    onChange={(e) => handleInputChange('guardian_relationship', e.target.value)}
-                    error={errors.guardian_relationship}
-                    helperText="e.g., Uncle, Aunt, Grandparent"
-                  />
-                  <Input
-                    label="Guardian's Phone"
-                    value={formData.guardian_phone}
-                    onChange={(e) => handleInputChange('guardian_phone', e.target.value)}
-                    error={errors.guardian_phone}
-                  />
-                  <Input
-                    label="Guardian's Email"
-                    type="email"
-                    value={formData.guardian_email}
-                    onChange={(e) => handleInputChange('guardian_email', e.target.value)}
-                    error={errors.guardian_email}
-                  />
-                  <div className="md:col-span-2">
-                    <FileUpload
-                      label="Guardian's Photo"
-                      value={formData.guardian_photo}
-                      onChange={(file) => handleInputChange('guardian_photo', file)}
-                      error={errors.guardian_photo}
-                      helperText="Upload a clear photo of the guardian (JPG, PNG, max 2MB)"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex justify-between pt-6 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handlePrevious}
-              disabled={activeTab === 'student'}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            
-            <div className="flex space-x-3">
-              {activeTab !== 'guardian' ? (
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={!canProceedToNext()}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || !canProceedToNext()}
-                  className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {editStudentId ? 'Updating Student...' : 'Creating Student...'}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {editStudentId ? 'Update Student' : 'Create Student'}
-                    </>
+            {/* Form Completion Status */}
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Form Status:</span>
+                  {activeTab === 'student' && (
+                    <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                      canProceedToNext() 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {canProceedToNext() ? 'Ready to proceed' : 'Complete required fields'}
+                    </span>
                   )}
-                </button>
-              )}
+                  {activeTab === 'parent' && (
+                    <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Parent information (optional)
+                    </span>
+                  )}
+                  {activeTab === 'guardian' && (
+                    <span className="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Guardian information (optional)
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Step {getCurrentStep()} of 3
+                </div>
+              </div>
             </div>
           </div>
         </div>

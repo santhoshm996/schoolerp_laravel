@@ -28,15 +28,15 @@ interface Student {
   gender: string;
   address: string;
   photo?: string;
-  class: {
+  classRoom?: {
     id: number;
     name: string;
   };
-  section: {
+  section?: {
     id: number;
     name: string;
   };
-  user: {
+  user?: {
     id: number;
     username: string;
     status: string;
@@ -84,6 +84,7 @@ const StudentView: React.FC = () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/api/v1/students/${id}`);
+      console.log('Student data received:', response.data.data);
       setStudent(response.data.data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to fetch student details');
@@ -134,6 +135,21 @@ const StudentView: React.FC = () => {
   const getGenderDisplay = (gender: string) => {
     if (!gender) return 'Not specified';
     return gender.charAt(0).toUpperCase() + gender.slice(1);
+  };
+
+  // Utility function to safely access nested properties
+  const safeGet = (obj: any, path: string, defaultValue: any = 'Not available') => {
+    if (!obj) return defaultValue;
+    const keys = path.split('.');
+    let result = obj;
+    for (const key of keys) {
+      if (result && typeof result === 'object' && key in result) {
+        result = result[key];
+      } else {
+        return defaultValue;
+      }
+    }
+    return result || defaultValue;
   };
 
   const tabs = [
@@ -364,21 +380,34 @@ const StudentView: React.FC = () => {
           {activeTab === 'academic' && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
-                  <AcademicCapIcon className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Class</p>
-                    <p className="text-lg font-semibold text-gray-900">{student.class.name}</p>
+                {student.classRoom && (
+                  <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
+                    <AcademicCapIcon className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Class</p>
+                      <p className="text-lg font-semibold text-gray-900">{student.classRoom.name}</p>
+                    </div>
                   </div>
-                </div>
+                )}
                 
-                <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
-                  <AcademicCapIcon className="h-8 w-8 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Section</p>
-                    <p className="text-lg font-semibold text-gray-900">{student.section.name}</p>
+                {student.section && (
+                  <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
+                    <AcademicCapIcon className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Section</p>
+                      <p className="text-lg font-semibold text-gray-900">{student.section.name}</p>
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {(!student.classRoom && !student.section) && (
+                  <div className="col-span-2">
+                    <div className="text-center py-8 text-gray-500">
+                      <AcademicCapIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                      <p>No academic information available</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -588,52 +617,62 @@ const StudentView: React.FC = () => {
           {/* Account Information Tab */}
           {activeTab === 'account' && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
-                  <IdentificationIcon className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Username</p>
-                    <p className="text-lg font-semibold text-gray-900">{student.user.username}</p>
+              {student.user ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
+                      <IdentificationIcon className="h-8 w-8 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Username</p>
+                        <p className="text-lg font-semibold text-gray-900">{student.user.username}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Account Status</p>
+                        <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(student.user.status)}`}>
+                          {student.user.status}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-3 p-4 bg-green-50 rounded-lg">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Account Status</p>
-                    <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(student.user.status)}`}>
-                      {student.user.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
-                  <EnvelopeIcon className="h-8 w-8 text-purple-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Email Verified</p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {student.user.email_verified_at ? 'Yes' : 'No'}
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
+                      <EnvelopeIcon className="h-8 w-8 text-purple-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Email Verified</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {student.user.email_verified_at ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 p-4 bg-orange-50 rounded-lg">
+                      <CalendarIcon className="h-8 w-8 text-orange-600" />
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Created</p>
+                        <p className="text-lg font-semibold text-gray-900">{formatDate(student.created_at)}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-3 p-4 bg-orange-50 rounded-lg">
-                  <CalendarIcon className="h-8 w-8 text-orange-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Created</p>
-                    <p className="text-lg font-semibold text-gray-900">{formatDate(student.created_at)}</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-                <CalendarIcon className="h-8 w-8 text-gray-600" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Last Updated</p>
-                  <p className="text-lg font-semibold text-gray-900">{formatDate(student.updated_at)}</p>
+                  <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+                    <CalendarIcon className="h-8 w-8 text-gray-600" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Last Updated</p>
+                      <p className="text-lg font-semibold text-gray-900">{formatDate(student.updated_at)}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-center py-12">
+                  <IdentificationIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No Account Information</h3>
+                  <p className="mt-1 text-sm text-gray-500">User account details are not available.</p>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </div>

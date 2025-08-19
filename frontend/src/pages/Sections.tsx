@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -8,6 +9,7 @@ import {
   AcademicCapIcon 
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../services/apiClient';
+import { useSessionChange } from '../hooks/useSessionChange';
 
 interface Section {
   id: number;
@@ -17,6 +19,7 @@ interface Section {
 }
 
 const Sections: React.FC = () => {
+  const { showSuccess, showError } = useToast();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -28,6 +31,11 @@ const Sections: React.FC = () => {
     fetchSections();
   }, []);
 
+  // Listen for session changes and refresh data
+  useSessionChange(() => {
+    fetchSections();
+  });
+
   const fetchSections = async () => {
     try {
       setLoading(true);
@@ -35,6 +43,7 @@ const Sections: React.FC = () => {
       setSections(response.data.data);
     } catch (err: any) {
       setError('Failed to fetch sections');
+      showError('Error', 'Failed to fetch sections');
       console.error('Error fetching sections:', err);
     } finally {
       setLoading(false);
@@ -64,8 +73,16 @@ const Sections: React.FC = () => {
       setFormData({ name: '' });
       setEditingSection(null);
       setShowForm(false);
+      
+      // Show success message
+      if (editingSection) {
+        showSuccess('Section Updated', 'Section has been updated successfully');
+      } else {
+        showSuccess('Section Created', 'Section has been created successfully');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save section');
+      showError('Error', err.response?.data?.message || 'Failed to save section');
       console.error('Error saving section:', err);
     }
   };
@@ -84,8 +101,10 @@ const Sections: React.FC = () => {
     try {
       await apiClient.delete(`/api/v1/sections/${sectionId}`);
       setSections(sections.filter(section => section.id !== sectionId));
+      showSuccess('Section Deleted', 'Section has been deleted successfully');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete section');
+      showError('Error', err.response?.data?.message || 'Failed to delete section');
       console.error('Error deleting section:', err);
     }
   };

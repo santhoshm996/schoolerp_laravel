@@ -24,4 +24,91 @@
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
   }
+
+  /* Custom scrollbar styles */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  /* Firefox */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+  }
+  
+  /* Ensure scrollbar is always visible */
+  .overflow-y-auto {
+    overflow-y: auto !important;
+  }
+  
+  /* Custom scrollbar for sidebar */
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 4px;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  
+  /* Force scrollbar to always show */
+  .sidebar-scrollbar {
+    scrollbar-width: auto;
+    scrollbar-color: #cbd5e1 #f8fafc;
+  }
+  
+  /* Ensure sidebar navigation has proper height */
+  .sidebar-nav {
+    height: calc(100vh - 8rem);
+    min-height: 400px;
+  }
+  
+  /* Mobile sidebar scrollbar */
+  .mobile-sidebar-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .mobile-sidebar-scrollbar::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 3px;
+  }
+  
+  .mobile-sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+  }
+  
+  .mobile-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 }

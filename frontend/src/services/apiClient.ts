@@ -5,7 +5,9 @@ class ApiClient {
 
   constructor() {
     this.client = axios.create({
-      baseURL: 'http://school_backend.test',
+      baseURL: process.env.NODE_ENV === 'production' 
+        ? 'https://your-production-domain.com' 
+        : 'http://school_backend.test',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

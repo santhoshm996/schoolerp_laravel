@@ -19,12 +19,24 @@ use Illuminate\Validation\Rule;
 class StudentController extends Controller
 {
     /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        // Apply role middleware to destructive operations
+        $this->middleware('role:superadmin,admin')->only(['store', 'update', 'destroy', 'bulkImport']);
+    }
+
+    /**
      * Display a listing of students
      */
     public function index(Request $request)
     {
         try {
-            $query = Student::with(['class', 'section', 'user'])
+            $query = Student::with(['classRoom', 'section', 'user'])
+                ->inSession($request->session_id)
                 ->orderBy('created_at', 'desc');
 
             // Filter by class
@@ -75,33 +87,50 @@ class StudentController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'admission_no' => 'required|string|unique:students,admission_no',
-                'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:students,email|unique:users,email',
-                'phone' => 'nullable|string|max:20',
-                'dob' => 'nullable|date',
+                'admission_no' => 'required|string|max:50|unique:students,admission_no|regex:/^[A-Z0-9\-]+$/',
+                'name' => 'required|string|max:255|min:2|regex:/^[a-zA-Z\s\.\-\']+$/',
+                'email' => 'required|email|max:255|unique:students,email|unique:users,email',
+                'phone' => 'nullable|string|max:20|regex:/^[\+]?[1-9][\d]{0,15}$/',
+                'dob' => 'nullable|date|before:today|after:1900-01-01',
                 'gender' => 'nullable|in:male,female,other',
-                'address' => 'nullable|string',
+                'address' => 'nullable|string|max:500',
                 'photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
                 'class_id' => 'required|exists:classes,id',
                 'section_id' => 'required|exists:sections,id',
                 
                 // Parent fields
-                'father_name' => 'nullable|string|max:255',
-                'father_phone' => 'nullable|string|max:20',
-                'father_email' => 'nullable|email',
+                'father_name' => 'nullable|string|max:255|min:2|regex:/^[a-zA-Z\s\.\-\']+$/',
+                'father_phone' => 'nullable|string|max:20|regex:/^[\+]?[1-9][\d]{0,15}$/',
+                'father_email' => 'nullable|email|max:255|unique:users,email',
                 'father_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-                'mother_name' => 'nullable|string|max:255',
-                'mother_phone' => 'nullable|string|max:20',
-                'mother_email' => 'nullable|email',
+                'mother_name' => 'nullable|string|max:255|min:2|regex:/^[a-zA-Z\s\.\-\']+$/',
+                'mother_phone' => 'nullable|string|max:20|regex:/^[\+]?[1-9][\d]{0,15}$/',
+                'mother_email' => 'nullable|email|max:255|unique:users,email',
                 'mother_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
                 
                 // Guardian fields
-                'guardian_name' => 'nullable|string|max:255',
-                'guardian_relationship' => 'nullable|string|max:100',
-                'guardian_phone' => 'nullable|string|max:20',
-                'guardian_email' => 'nullable|email',
+                'guardian_name' => 'nullable|string|max:255|min:2|regex:/^[a-zA-Z\s\.\-\']+$/',
+                'guardian_relationship' => 'nullable|string|max:100|regex:/^[a-zA-Z\s\.\-\']+$/',
+                'guardian_phone' => 'nullable|string|max:20|regex:/^[\+]?[1-9][\d]{0,15}$/',
+                'guardian_email' => 'nullable|email|max:255|unique:users,email',
                 'guardian_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            ], [
+                'admission_no.regex' => 'Admission number can only contain uppercase letters, numbers, hyphens, and underscores.',
+                'name.regex' => 'Name can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'phone.regex' => 'Please enter a valid phone number.',
+                'dob.before' => 'Date of birth must be in the past.',
+                'dob.after' => 'Date of birth must be after 1900.',
+                'father_name.regex' => 'Father\'s name can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'father_phone.regex' => 'Please enter a valid phone number for father.',
+                'mother_name.regex' => 'Mother\'s name can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'mother_phone.regex' => 'Please enter a valid phone number for mother.',
+                'guardian_name.regex' => 'Guardian\'s name can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'guardian_relationship.regex' => 'Relationship can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'guardian_phone.regex' => 'Please enter a valid phone number for guardian.',
+                'photo.max' => 'Student photo must be less than 2MB.',
+                'father_photo.max' => 'Father\'s photo must be less than 2MB.',
+                'mother_photo.max' => 'Mother\'s photo must be less than 2MB.',
+                'guardian_photo.max' => 'Guardian\'s photo must be less than 2MB.',
             ]);
 
             if ($validator->fails()) {
@@ -109,6 +138,32 @@ class StudentController extends Controller
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Additional business logic validation
+            if ($request->dob) {
+                $dob = \Carbon\Carbon::parse($request->dob);
+                $age = $dob->age;
+                
+                if ($age < 3 || $age > 25) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Student age must be between 3 and 25 years',
+                        'errors' => ['dob' => ['Student age must be between 3 and 25 years']]
+                    ], 422);
+                }
+            }
+
+            // Validate class and section compatibility (if you have business rules)
+            $class = ClassRoom::find($request->class_id);
+            $section = Section::find($request->section_id);
+            
+            if (!$class || !$section) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid class or section selected',
+                    'errors' => ['class_id' => ['Invalid class selected'], 'section_id' => ['Invalid section selected']]
                 ], 422);
             }
 
@@ -133,6 +188,12 @@ class StudentController extends Controller
                 $studentPhotoPath = $request->file('photo')->store('students/photos', 'public');
             }
 
+            // Get active session
+            $activeSession = \App\Models\Session::getActiveSession();
+            if (!$activeSession) {
+                throw new \Exception('No active session found. Please create and activate a session first.');
+            }
+
             // Create student record
             $student = Student::create([
                 'admission_no' => $request->admission_no,
@@ -146,6 +207,7 @@ class StudentController extends Controller
                 'class_id' => $request->class_id,
                 'section_id' => $request->section_id,
                 'user_id' => $user->id,
+                'session_id' => $activeSession->id,
             ]);
 
             // Handle parent photo uploads and create parent record
@@ -201,7 +263,7 @@ class StudentController extends Controller
             DB::commit();
 
             // Load relationships for response
-            $student->load(['class', 'section', 'user', 'parent', 'guardian']);
+            $student->load(['classRoom', 'section', 'user', 'parent', 'guardian']);
 
             return response()->json([
                 'success' => true,
@@ -225,7 +287,7 @@ class StudentController extends Controller
     public function show($id)
     {
         try {
-            $student = Student::with(['class', 'section', 'user', 'parent', 'guardian'])->findOrFail($id);
+            $student = Student::with(['classRoom', 'section', 'user', 'parent', 'guardian'])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -252,21 +314,30 @@ class StudentController extends Controller
                 'admission_no' => [
                     'required',
                     'string',
+                    'max:50',
+                    'regex:/^[A-Z0-9\-]+$/',
                     Rule::unique('students')->ignore($id),
                 ],
-                'name' => 'required|string|max:255',
+                'name' => 'required|string|max:255|min:2|regex:/^[a-zA-Z\s\.\-\']+$/',
                 'email' => [
                     'required',
                     'email',
+                    'max:255',
                     Rule::unique('students')->ignore($id),
                     Rule::unique('users')->ignore($student->user_id),
                 ],
-                'phone' => 'nullable|string|max:20',
-                'dob' => 'nullable|date',
+                'phone' => 'nullable|string|max:20|regex:/^[\+]?[1-9][\d]{0,15}$/',
+                'dob' => 'nullable|date|before:today|after:1900-01-01',
                 'gender' => 'nullable|in:male,female,other',
-                'address' => 'nullable|string',
+                'address' => 'nullable|string|max:500',
                 'class_id' => 'required|exists:classes,id',
                 'section_id' => 'required|exists:sections,id',
+            ], [
+                'admission_no.regex' => 'Admission number can only contain uppercase letters, numbers, hyphens, and underscores.',
+                'name.regex' => 'Name can only contain letters, spaces, dots, hyphens, and apostrophes.',
+                'phone.regex' => 'Please enter a valid phone number.',
+                'dob.before' => 'Date of birth must be in the past.',
+                'dob.after' => 'Date of birth must be after 1900.',
             ]);
 
             if ($validator->fails()) {
@@ -274,6 +345,32 @@ class StudentController extends Controller
                     'success' => false,
                     'message' => 'Validation failed',
                     'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Additional business logic validation
+            if ($request->dob) {
+                $dob = \Carbon\Carbon::parse($request->dob);
+                $age = $dob->age;
+                
+                if ($age < 3 || $age > 25) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Student age must be between 3 and 25 years',
+                        'errors' => ['dob' => ['Student age must be between 3 and 25 years']]
+                    ], 422);
+                }
+            }
+
+            // Validate class and section compatibility
+            $class = ClassRoom::find($request->class_id);
+            $section = Section::find($request->section_id);
+            
+            if (!$class || !$section) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid class or section selected',
+                    'errors' => ['class_id' => ['Invalid class selected'], 'section_id' => ['Invalid section selected']]
                 ], 422);
             }
 
@@ -305,7 +402,7 @@ class StudentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Student updated successfully',
-                'data' => $student->load(['class', 'section', 'user'])
+                'data' => $student->load(['classRoom', 'section', 'user'])
             ]);
 
         } catch (\Exception $e) {
@@ -429,6 +526,12 @@ class StudentController extends Controller
 
                     $user->assignRole('student');
 
+                    // Get active session
+                    $activeSession = \App\Models\Session::getActiveSession();
+                    if (!$activeSession) {
+                        throw new \Exception('No active session found. Please create and activate a session first.');
+                    }
+
                     // Create student record
                     Student::create([
                         'admission_no' => $data['admission_no'],
@@ -441,6 +544,7 @@ class StudentController extends Controller
                         'class_id' => $class->id,
                         'section_id' => $section->id,
                         'user_id' => $user->id,
+                        'session_id' => $activeSession->id,
                     ]);
 
                     $results['imported']++;
@@ -475,8 +579,8 @@ class StudentController extends Controller
     public function getClassesAndSections()
     {
         try {
-            $classes = ClassRoom::with('section')->get();
-            $sections = Section::all();
+            $classes = ClassRoom::with('section')->inSession()->get();
+            $sections = Section::inSession()->get();
 
             return response()->json([
                 'success' => true,

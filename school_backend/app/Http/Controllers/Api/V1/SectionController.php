@@ -11,6 +11,17 @@ use Illuminate\Validation\Rule;
 class SectionController extends Controller
 {
     /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        // Apply role middleware to destructive operations
+        $this->middleware('role:superadmin,admin')->only(['store', 'update', 'destroy']);
+    }
+
+    /**
      * Display a listing of the sections
      */
     public function index(): JsonResponse

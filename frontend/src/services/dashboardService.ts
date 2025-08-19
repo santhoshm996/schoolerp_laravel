@@ -9,11 +9,16 @@ export interface DashboardData {
     status?: string;
     last_backup?: string;
     active_users_today?: number;
+    uptime?: number;
+    database_size?: number;
   };
   recent_activities?: Array<{
+    id: string;
     action: string;
     user: string;
     time: string;
+    type?: 'success' | 'warning' | 'error' | 'info';
+    details?: string;
   }>;
   assigned_classes?: {
     count?: number;
@@ -30,10 +35,12 @@ export interface DashboardData {
     subject: string;
   }>;
   attendance_today?: number;
+  attendance_percentage?: number;
   todays_collection?: {
     amount?: number;
     transactions?: number;
     pending?: number;
+    target?: number;
   };
   pending_dues?: {
     total_amount?: number;
@@ -44,6 +51,7 @@ export interface DashboardData {
     collected?: number;
     pending?: number;
     total_students?: number;
+    previous_month?: number;
   };
   class_info?: {
     class?: string;
@@ -65,6 +73,12 @@ export interface DashboardData {
     score: number;
     grade: string;
   }>;
+  performance_metrics?: {
+    academic_performance?: number;
+    attendance_rate?: number;
+    fee_collection_rate?: number;
+    teacher_satisfaction?: number;
+  };
 }
 
 export interface DashboardResponse {
@@ -77,9 +91,12 @@ class DashboardService {
   /**
    * Fetch dashboard data based on user role
    */
-  async getDashboardData(): Promise<DashboardData> {
+  async getDashboardData(sessionId?: number): Promise<DashboardData> {
     try {
-      const response = await apiClient.get('/api/v1/dashboard');
+      const url = sessionId 
+        ? `/api/v1/dashboard?session_id=${sessionId}`
+        : '/api/v1/dashboard';
+      const response = await apiClient.get(url);
       return response.data.data;
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch dashboard data';

@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSession } from '../contexts/SessionContext';
+import { useToast } from '../contexts/ToastContext';
 import { dashboardService } from '../services/dashboardService';
 import StatCard from '../components/dashboard/StatCard';
+import ChartCard from '../components/dashboard/ChartCard';
+import QuickActionCard from '../components/dashboard/QuickActionCard';
+import ActivityFeed from '../components/dashboard/ActivityFeed';
 import DataTable from '../components/dashboard/DataTable';
+import SessionSelector from '../components/SessionSelector';
+import { useSessionChange } from '../hooks/useSessionChange';
 import { 
   Users, 
   GraduationCap, 
@@ -14,7 +21,14 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  DollarSign,
+  BarChart3,
+  UserPlus,
+  Target,
+  Activity,
+  Shield,
+  Database
 } from 'lucide-react';
 
 interface DashboardData {
@@ -26,11 +40,16 @@ interface DashboardData {
     status?: string;
     last_backup?: string;
     active_users_today?: number;
+    uptime?: number;
+    database_size?: number;
   };
   recent_activities?: Array<{
+    id: string;
     action: string;
     user: string;
     time: string;
+    type?: 'success' | 'warning' | 'error' | 'info';
+    details?: string;
   }>;
   assigned_classes?: {
     count?: number;
@@ -47,10 +66,12 @@ interface DashboardData {
     subject: string;
   }>;
   attendance_today?: number;
+  attendance_percentage?: number;
   todays_collection?: {
     amount?: number;
     transactions?: number;
     pending?: number;
+    target?: number;
   };
   pending_dues?: {
     total_amount?: number;
@@ -61,6 +82,7 @@ interface DashboardData {
     collected?: number;
     pending?: number;
     total_students?: number;
+    previous_month?: number;
   };
   class_info?: {
     class?: string;
@@ -82,25 +104,39 @@ interface DashboardData {
     score: number;
     grade: string;
   }>;
+  performance_metrics?: {
+    academic_performance?: number;
+    attendance_rate?: number;
+    fee_collection_rate?: number;
+    teacher_satisfaction?: number;
+  };
 }
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { currentSession } = useSession();
+  const { showError } = useToast();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [currentSession]);
+
+  // Listen for session changes and refresh dashboard data
+  useSessionChange(() => {
+    fetchDashboardData();
+  });
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const data = await dashboardService.getDashboardData();
+      const data = await dashboardService.getDashboardData(currentSession?.id);
       setDashboardData(data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch dashboard data');
+      showError('Error', err.message || 'Failed to fetch dashboard data');
       console.error('Error fetching dashboard:', err);
     } finally {
       setLoading(false);
@@ -122,20 +158,48 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="space-y-6">
+        {/* Loading Header */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-64 mb-2"></div>
+            <div className="h-4 bg-gray-200 rounded w-96"></div>
+          </div>
+        </div>
+        
+        {/* Loading Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, index) => (
+            <div key={index} className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="animate-pulse">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-4 bg-gray-200 rounded w-24"></div>
+                  <div className="h-10 w-10 bg-gray-200 rounded-lg"></div>
+                </div>
+                <div className="h-8 bg-gray-200 rounded w-20 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-        <div className="flex">
-          <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-8 rounded-xl">
+        <div className="flex items-start">
+          <AlertCircle className="h-6 w-6 text-red-400 mt-0.5 flex-shrink-0" />
           <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Error</h3>
-            <div className="mt-2 text-sm text-red-700">{error}</div>
+            <h3 className="text-lg font-medium text-red-800">Error Loading Dashboard</h3>
+            <div className="mt-2 text-red-700">{error}</div>
+            <button
+              onClick={fetchDashboardData}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       </div>
@@ -149,16 +213,31 @@ const Dashboard: React.FC = () => {
   const renderAdminDashboard = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back, {user.name}! 👋
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Here's an overview of your school system.
-        </p>
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-8">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Welcome back, {user.name}! 👋
+            </h1>
+            <p className="text-lg text-gray-600 mb-3">
+              Here's an overview of your school system performance.
+            </p>
+            {currentSession && (
+              <div className="flex items-center space-x-2 text-blue-600">
+                <Calendar className="h-5 w-5" />
+                <span className="font-medium">
+                  Academic Session: {currentSession.name} ({new Date(currentSession.start_date).getFullYear()}-{new Date(currentSession.end_date).getFullYear()})
+                </span>
+              </div>
+            )}
+          </div>
+          {(user.role === 'superadmin' || user.role === 'admin') && (
+            <SessionSelector />
+          )}
+        </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Students"
@@ -166,6 +245,8 @@ const Dashboard: React.FC = () => {
           icon={Users}
           iconColor="text-blue-600"
           bgColor="bg-blue-100"
+          trend={{ value: 12, isPositive: true, label: 'vs last month' }}
+          status="success"
         />
         <StatCard
           title="Total Teachers"
@@ -173,6 +254,8 @@ const Dashboard: React.FC = () => {
           icon={BookOpen}
           iconColor="text-green-600"
           bgColor="bg-green-100"
+          trend={{ value: 5, isPositive: true, label: 'vs last month' }}
+          status="success"
         />
         <StatCard
           title="Total Classes"
@@ -180,6 +263,7 @@ const Dashboard: React.FC = () => {
           icon={GraduationCap}
           iconColor="text-purple-600"
           bgColor="bg-purple-100"
+          status="info"
         />
         <StatCard
           title="Total Sections"
@@ -187,100 +271,119 @@ const Dashboard: React.FC = () => {
           icon={Building2}
           iconColor="text-orange-600"
           bgColor="bg-orange-100"
+          status="info"
+        />
+      </div>
+
+      {/* Performance Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <ChartCard
+          title="Academic Performance"
+          subtitle="Overall student performance"
+          data={{ current: 85, target: 90, unit: '%' }}
+          type="progress"
+          status="success"
+          icon={Target}
+        />
+        <ChartCard
+          title="Attendance Rate"
+          subtitle="Student attendance this month"
+          data={{ current: 92, previous: 89, unit: '%' }}
+          type="comparison"
+          status="success"
+          icon={CheckCircle}
+        />
+        <ChartCard
+          title="System Health"
+          subtitle="Infrastructure status"
+          data={{ current: 100, unit: '%' }}
+          type="status"
+          status="success"
+          icon={Shield}
         />
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-4">Quick Actions</h3>
+      <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button
-            onClick={() => window.location.href = '/student-admission'}
-            className="flex flex-col items-center p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 group"
-          >
-            <div className="p-3 bg-blue-100 rounded-full mb-3 group-hover:bg-blue-200 transition-colors">
-              <UserCheck className="h-6 w-6 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-blue-900">Add Student</span>
-            <span className="text-xs text-blue-600 mt-1">New Admission</span>
-          </button>
+          <QuickActionCard
+            title="Add Student"
+            subtitle="New Admission"
+            icon={UserPlus}
+            iconColor="text-blue-600"
+            bgColor="bg-blue-100"
+            href="/student-admission"
+            badge="New"
+            badgeColor="bg-green-100 text-green-800"
+          />
           
-          <button
-            onClick={() => window.location.href = '/students'}
-            className="flex flex-col items-center p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 group"
-          >
-            <div className="p-3 bg-green-100 rounded-full mb-3 group-hover:bg-green-200 transition-colors">
-              <Users className="h-6 w-6 text-green-600" />
-            </div>
-            <span className="text-sm font-medium text-green-900">View Students</span>
-            <span className="text-xs text-green-600 mt-1">Manage List</span>
-          </button>
+          <QuickActionCard
+            title="View Students"
+            subtitle="Manage List"
+            icon={Users}
+            iconColor="text-green-600"
+            bgColor="bg-green-100"
+            href="/students"
+          />
           
-          <button
-            onClick={() => window.location.href = '/classes'}
-            className="flex flex-col items-center p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 group"
-          >
-            <div className="p-3 bg-purple-100 rounded-full mb-3 group-hover:bg-purple-200 transition-colors">
-              <GraduationCap className="h-6 w-6 text-purple-600" />
-            </div>
-            <span className="text-sm font-medium text-purple-900">Manage Classes</span>
-            <span className="text-xs text-purple-600 mt-1">Add/Edit</span>
-          </button>
+          <QuickActionCard
+            title="Manage Classes"
+            subtitle="Add/Edit"
+            icon={GraduationCap}
+            iconColor="text-purple-600"
+            bgColor="bg-purple-100"
+            href="/classes"
+          />
           
-          <button
-            onClick={() => window.location.href = '/users'}
-            className="flex flex-col items-center p-4 bg-white rounded-lg border border-blue-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 group"
-          >
-            <div className="p-3 bg-orange-100 rounded-full mb-3 group-hover:bg-orange-200 transition-colors">
-              <BookOpen className="h-6 w-6 text-orange-600" />
-            </div>
-            <span className="text-sm font-medium text-orange-900">Manage Users</span>
-            <span className="text-xs text-orange-600 mt-1">Staff/Admin</span>
-          </button>
+          <QuickActionCard
+            title="Manage Users"
+            subtitle="Staff/Admin"
+            icon={BookOpen}
+            iconColor="text-orange-600"
+            bgColor="bg-orange-100"
+            href="/users"
+          />
         </div>
       </div>
 
       {/* System Health & Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* System Health */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">System Health</h3>
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+            <Database className="h-5 w-5 mr-2 text-blue-600" />
+            System Health
+          </h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Status</span>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+              <span className="text-sm font-medium text-gray-700">Status</span>
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                 <CheckCircle className="h-4 w-4 mr-1" />
                 {dashboardData.system_health?.status || 'Healthy'}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Last Backup</span>
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <span className="text-sm font-medium text-gray-700">Last Backup</span>
               <span className="text-sm text-gray-900">{dashboardData.system_health?.last_backup || 'N/A'}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Active Users Today</span>
+            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
+              <span className="text-sm font-medium text-gray-700">Active Users Today</span>
               <span className="text-sm text-gray-900">{dashboardData.system_health?.active_users_today || 0}</span>
             </div>
           </div>
         </div>
 
         {/* Recent Activities */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activities</h3>
-          <div className="space-y-3">
-            {dashboardData.recent_activities?.map((activity, index: number) => (
-              <div key={index} className="flex items-center space-x-3">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-900 truncate">{activity.action}</p>
-                  <p className="text-xs text-gray-500">{activity.user} • {activity.time}</p>
-                </div>
-              </div>
-            )) || (
-              <p className="text-sm text-gray-500">No recent activities</p>
-            )}
-          </div>
-        </div>
+        <ActivityFeed
+          title="Recent Activities"
+          activities={dashboardData.recent_activities?.map((activity, index) => ({
+            ...activity,
+            id: activity.id || `activity-${index}`
+          })) || []}
+          maxItems={5}
+          onViewAll={() => window.location.href = '/activities'}
+        />
       </div>
     </div>
   );
@@ -288,12 +391,12 @@ const Dashboard: React.FC = () => {
   const renderTeacherDashboard = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Welcome back, {user.name}! 👋
         </h1>
-        <p className="text-gray-600 mt-2">
-          Manage your classes and track student progress.
+        <p className="text-lg text-gray-600">
+          Manage your classes and track student progress effectively.
         </p>
       </div>
 
@@ -305,6 +408,7 @@ const Dashboard: React.FC = () => {
           icon={GraduationCap}
           iconColor="text-blue-600"
           bgColor="bg-blue-100"
+          status="info"
         />
         <StatCard
           title="Total Students"
@@ -312,6 +416,7 @@ const Dashboard: React.FC = () => {
           icon={Users}
           iconColor="text-green-600"
           bgColor="bg-green-100"
+          status="success"
         />
         <StatCard
           title="Attendance Today"
@@ -319,6 +424,8 @@ const Dashboard: React.FC = () => {
           icon={CheckCircle}
           iconColor="text-purple-600"
           bgColor="bg-purple-100"
+          progress={dashboardData.attendance_percentage || 0}
+          status="success"
         />
         <StatCard
           title="Classes Today"
@@ -326,12 +433,32 @@ const Dashboard: React.FC = () => {
           icon={Calendar}
           iconColor="text-orange-600"
           bgColor="bg-orange-100"
+          status="info"
+        />
+      </div>
+
+      {/* Performance Metrics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard
+          title="Attendance Rate"
+          subtitle="This month's attendance"
+          data={{ current: dashboardData.attendance_percentage || 0, target: 95, unit: '%' }}
+          type="progress"
+          status={dashboardData.attendance_percentage && dashboardData.attendance_percentage >= 90 ? 'success' : 'warning'}
+          icon={CheckCircle}
+        />
+        <ChartCard
+          title="Class Performance"
+          subtitle="Average student scores"
+          data={{ current: 78, previous: 75, unit: '%' }}
+          type="comparison"
+          status="success"
+          icon={BarChart3}
         />
       </div>
 
       {/* Assigned Classes & Today's Timetable */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Assigned Classes */}
         <DataTable
           title="Assigned Classes"
           columns={[
@@ -342,7 +469,6 @@ const Dashboard: React.FC = () => {
           data={dashboardData.assigned_classes?.classes || []}
         />
 
-        {/* Today's Timetable */}
         <DataTable
           title="Today's Timetable"
           columns={[
@@ -359,12 +485,12 @@ const Dashboard: React.FC = () => {
   const renderAccountantDashboard = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Welcome back, {user.name}! 👋
         </h1>
-        <p className="text-gray-600 mt-2">
-          Track financial performance and manage fee collections.
+        <p className="text-lg text-gray-600">
+          Track financial performance and manage fee collections efficiently.
         </p>
       </div>
 
@@ -377,6 +503,7 @@ const Dashboard: React.FC = () => {
           iconColor="text-green-600"
           bgColor="bg-green-100"
           subtitle={`${dashboardData.todays_collection?.transactions || 0} transactions`}
+          status="success"
         />
         <StatCard
           title="Pending Dues"
@@ -385,6 +512,7 @@ const Dashboard: React.FC = () => {
           iconColor="text-red-600"
           bgColor="bg-red-100"
           subtitle={`${dashboardData.pending_dues?.students_count || 0} students`}
+          status="error"
         />
         <StatCard
           title="Monthly Collection"
@@ -392,6 +520,7 @@ const Dashboard: React.FC = () => {
           icon={TrendingUp}
           iconColor="text-blue-600"
           bgColor="bg-blue-100"
+          status="success"
         />
         <StatCard
           title="Overdue Count"
@@ -399,27 +528,70 @@ const Dashboard: React.FC = () => {
           icon={Clock}
           iconColor="text-orange-600"
           bgColor="bg-orange-100"
+          status="warning"
+        />
+      </div>
+
+      {/* Financial Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <ChartCard
+          title="Collection Rate"
+          subtitle="This month's collection"
+          data={{ 
+            current: dashboardData.monthly_summary?.collected || 0, 
+            target: (dashboardData.monthly_summary?.collected || 0) + (dashboardData.monthly_summary?.pending || 0),
+            unit: '₹'
+          }}
+          type="progress"
+          status="success"
+          icon={DollarSign}
+        />
+        <ChartCard
+          title="Monthly Growth"
+          subtitle="vs previous month"
+          data={{ 
+            current: dashboardData.monthly_summary?.collected || 0, 
+            previous: dashboardData.monthly_summary?.previous_month || 0,
+            unit: '₹'
+          }}
+          type="comparison"
+          status="success"
+          icon={TrendingUp}
+        />
+        <ChartCard
+          title="Pending Amount"
+          subtitle="Outstanding dues"
+          data={{ 
+            current: dashboardData.monthly_summary?.pending || 0,
+            unit: '₹'
+          }}
+          type="metric"
+          status="warning"
+          icon={AlertCircle}
         />
       </div>
 
       {/* Financial Summary */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Monthly Summary</h3>
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+          <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+          Monthly Summary
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <p className="text-2xl font-bold text-green-600">
+          <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-3xl font-bold text-green-600">
               {formatCurrency(dashboardData.monthly_summary?.collected || 0)}
             </p>
             <p className="text-sm text-gray-600">Total Collected</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-red-600">
+          <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-3xl font-bold text-red-600">
               {formatCurrency(dashboardData.monthly_summary?.pending || 0)}
             </p>
             <p className="text-sm text-gray-600">Total Pending</p>
           </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-blue-600">
+          <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-3xl font-bold text-blue-600">
               {dashboardData.monthly_summary?.total_students || 0}
             </p>
             <p className="text-sm text-gray-600">Total Students</p>
@@ -432,12 +604,12 @@ const Dashboard: React.FC = () => {
   const renderStudentDashboard = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Welcome back, {user.name}! 👋
         </h1>
-        <p className="text-gray-600 mt-2">
-          Track your academic progress and stay updated.
+        <p className="text-lg text-gray-600">
+          Track your academic progress and stay updated with your performance.
         </p>
       </div>
 
@@ -449,6 +621,7 @@ const Dashboard: React.FC = () => {
           icon={GraduationCap}
           iconColor="text-blue-600"
           bgColor="bg-blue-100"
+          status="info"
         />
         <StatCard
           title="Section"
@@ -456,6 +629,7 @@ const Dashboard: React.FC = () => {
           icon={Building2}
           iconColor="text-green-600"
           bgColor="bg-green-100"
+          status="info"
         />
         <StatCard
           title="Attendance"
@@ -464,6 +638,8 @@ const Dashboard: React.FC = () => {
           iconColor="text-purple-600"
           bgColor="bg-purple-100"
           subtitle={`${dashboardData.attendance?.present_days || 0}/${dashboardData.attendance?.total_days || 0} days`}
+          progress={dashboardData.attendance?.percentage || 0}
+          status={dashboardData.attendance?.percentage && dashboardData.attendance.percentage >= 80 ? 'success' : 'warning'}
         />
         <StatCard
           title="Roll Number"
@@ -471,12 +647,40 @@ const Dashboard: React.FC = () => {
           icon={UserCheck}
           iconColor="text-orange-600"
           bgColor="bg-orange-100"
+          status="info"
+        />
+      </div>
+
+      {/* Academic Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ChartCard
+          title="Attendance Rate"
+          subtitle="This month's attendance"
+          data={{ 
+            current: dashboardData.attendance?.percentage || 0, 
+            target: 90,
+            unit: '%'
+          }}
+          type="progress"
+          status={dashboardData.attendance?.percentage && dashboardData.attendance.percentage >= 85 ? 'success' : 'warning'}
+          icon={CheckCircle}
+        />
+        <ChartCard
+          title="Academic Performance"
+          subtitle="Average score this term"
+          data={{ 
+            current: 78, 
+            previous: 75,
+            unit: '%'
+          }}
+          type="comparison"
+          status="success"
+          icon={Target}
         />
       </div>
 
       {/* Upcoming Exams & Recent Results */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Exams */}
         <DataTable
           title="Upcoming Exams"
           columns={[
@@ -487,7 +691,6 @@ const Dashboard: React.FC = () => {
           data={dashboardData.upcoming_exams || []}
         />
 
-        {/* Recent Results */}
         <DataTable
           title="Recent Results"
           columns={[
@@ -514,9 +717,12 @@ const Dashboard: React.FC = () => {
         return renderStudentDashboard();
       default:
         return (
-          <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-            <h3 className="text-sm font-medium text-gray-900">Dashboard</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+            <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+              <Activity className="h-12 w-12 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Dashboard</h3>
+            <p className="text-gray-500">
               Welcome to the School ERP system.
             </p>
           </div>
@@ -530,7 +736,7 @@ const Dashboard: React.FC = () => {
       
       {/* Floating Action Button for Mobile - Admin/Teacher Only */}
       {(user.role === 'superadmin' || user.role === 'admin' || user.role === 'teacher') && (
-        <div className="fixed bottom-6 right-6 md:hidden">
+        <div className="fixed bottom-6 right-6 md:hidden z-50">
           <button
             onClick={() => window.location.href = '/student-admission'}
             className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 hover:scale-110"

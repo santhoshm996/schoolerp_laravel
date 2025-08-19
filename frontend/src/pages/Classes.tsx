@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../contexts/ToastContext';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -8,6 +9,7 @@ import {
   AcademicCapIcon 
 } from '@heroicons/react/24/outline';
 import { apiClient } from '../services/apiClient';
+import { useSessionChange } from '../hooks/useSessionChange';
 
 interface Section {
   id: number;
@@ -24,6 +26,7 @@ interface Class {
 }
 
 const Classes: React.FC = () => {
+  const { showSuccess, showError } = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,11 @@ const Classes: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Listen for session changes and refresh data
+  useSessionChange(() => {
+    fetchData();
+  });
 
   const fetchData = async () => {
     try {
@@ -48,6 +56,7 @@ const Classes: React.FC = () => {
       setSections(sectionsResponse.data.data);
     } catch (err: any) {
       setError('Failed to fetch data');
+      showError('Error', 'Failed to fetch data');
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
@@ -82,8 +91,16 @@ const Classes: React.FC = () => {
       setFormData({ name: '', section_id: '' });
       setEditingClass(null);
       setShowForm(false);
+      
+      // Show success message
+      if (editingClass) {
+        showSuccess('Class Updated', 'Class has been updated successfully');
+      } else {
+        showSuccess('Class Created', 'Class has been created successfully');
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to save class');
+      showError('Error', err.response?.data?.message || 'Failed to save class');
       console.error('Error saving class:', err);
     }
   };
@@ -102,8 +119,10 @@ const Classes: React.FC = () => {
     try {
       await apiClient.delete(`/api/v1/classes/${classId}`);
       setClasses(classes.filter(cls => cls.id !== classId));
+      showSuccess('Class Deleted', 'Class has been deleted successfully');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to delete class');
+      showError('Error', err.response?.data?.message || 'Failed to delete class');
       console.error('Error deleting class:', err);
     }
   };

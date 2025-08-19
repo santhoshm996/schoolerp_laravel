@@ -20,14 +20,18 @@ return new class extends Migration
             $table->date('dob')->nullable();
             $table->enum('gender', ['male', 'female', 'other'])->nullable();
             $table->text('address')->nullable();
+            $table->string('photo')->nullable(); // Added missing photo field
             $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
             $table->foreignId('section_id')->constrained('sections')->onDelete('cascade');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->timestamps();
             
-            // Indexes for better performance
+            // Enhanced indexes for better performance
             $table->index(['class_id', 'section_id']);
             $table->index('admission_no');
+            $table->index('email'); // For email lookups
+            $table->index(['name', 'admission_no']); // For search functionality
+            $table->index('user_id'); // For user relationship queries
         });
     }
 
